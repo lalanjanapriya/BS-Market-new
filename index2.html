@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>කඩේ POS සහ කළමනාකරණය</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        body { background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; height: 100vh; }
+        .main { flex: 1; padding: 15px; overflow-y: auto; padding-bottom: 70px; max-width: 1200px; margin: 0 auto; width: 100%; }
+        .tab { display: none; }
+        .tab.active { display: block; }
+        .card { background: #1e293b; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); margin-bottom: 15px; border: 1px solid #334155; }
+        h3 { margin-bottom: 10px; color: #f8fafc; font-size: 1.1rem; }
+        .form-group { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        input, select { padding: 12px; background: #0f172a; border: 1px solid #475569; color: #fff; border-radius: 8px; flex: 1; min-width: 140px; font-size: 1rem; }
+        input:focus { border-color: #38bdf8; outline: none; }
+        button.btn { background: #10b981; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: background 0.2s; }
+        button.btn:hover { background: #059669; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        th, td { border: 1px solid #334155; padding: 10px; text-align: left; color: #e2e8f0; }
+        th { background: #0f172a; color: #94a3b8; }
+        
+        /* POS Specific Styling matching image */
+        .app-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-size: 1.2rem; font-weight: bold; color: #38bdf8; }
+        .search-bar-container { position: relative; margin-bottom: 15px; }
+        .search-bar-container input { width: 100%; padding-left: 40px; border-radius: 25px; background: #1e293b; border: 1px solid #475569; }
+        .search-icon { position: absolute; left: 15px; top: 14px; color: #94a3b8; }
+        .scan-btn-absolute { position: absolute; right: 5px; top: 5px; background: #2563eb; border: none; padding: 8px 15px; border-radius: 20px; color: white; cursor: pointer; font-weight: bold; }
+        
+        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 15px; max-height: 250px; overflow-y: auto; }
+        .product-card { background: #0f172a; border: 1px solid #334155; padding: 12px; border-radius: 8px; cursor: pointer; transition: 0.2s; position: relative; }
+        .product-card:hover { border-color: #38bdf8; background: #1e293b; }
+        .product-name { font-weight: bold; font-size: 1rem; margin-bottom: 5px; color: #f1f5f9; }
+        .product-price { color: #38bdf8; font-weight: bold; }
+        .product-code { position: absolute; top: 10px; right: 10px; font-size: 0.75rem; background: #334155; padding: 2px 6px; border-radius: 4px; color: #94a3b8; }
+        .product-qty { font-size: 0.8rem; color: #94a3b8; margin-top: 5px; }
+
+        .cart-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 8px; margin-bottom: 10px; }
+        .total-display-box { background: #0f172a; padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid #334155; }
+        .total-amount { font-size: 1.8rem; font-weight: bold; color: #34d399; text-align: right; }
+        
+        /* Bottom Navigation Bar for Mobile Feel */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #1e293b; display: flex; justify-content: space-around; padding: 12px 0; border-top: 1px solid #334155; z-index: 1000; }
+        .bottom-nav button { background: none; border: none; color: #94a3b8; font-size: 0.85rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; gap: 4px; }
+        .bottom-nav button.active, .bottom-nav button:hover { color: #38bdf8; }
+        
+        @media print {
+            body * { visibility: hidden; }
+            #printable-bill, #printable-bill * { visibility: visible; }
+            #printable-bill { position: absolute; left: 0; top: 0; width: 100%; color: #000; background: #fff; padding: 20px; }
+        }
+    </style>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+
+<div class="main">
+    <!-- POS TAB -->
+    <div id="pos" class="tab active">
+        <div class="app-header">
+            <span>🏠 කඩේ POS සහ කළමනාකරණය</span>
+        </div>
+
+        <div class="search-bar-container">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="pos-search" placeholder="භාණ්ඩයේ නම හෝ Code එක..." oninput="searchItem()">
+            <button class="scan-btn-absolute" onclick="startScanner()">📷 ස්කෑන්</button>
+        </div>
+
+        <div id="reader" style="width:100%; display:none; margin-bottom:10px;"></div>
+
+        <!-- Products Quick Select Grid -->
+        <div class="products-grid" id="search-results">
+            <!-- Dynamic items appear here -->
+        </div>
+
+        <div class="card">
+            <div class="cart-header">
+                <h3>🛒 වර්මන් බිල (Current Cart)</h3>
+                <span style="color: #ef4444; cursor: pointer; font-size: 0.9rem;" onclick="clearCart()">සියල්ල ඉවත් කරන්න</span>
+            </div>
+            
+            <div style="max-height: 150px; overflow-y: auto;">
+                <table id="bill-table" style="margin-top:0;">
+                    <thead><tr><th>නම</th><th>මිල</th><th>ප්‍රමාණය</th><th>එකතුව</th><th>ඉවත්</th></tr></thead>
+                    <tbody id="bill-items">
+                        <tr><td colspan="5" style="text-align:center; color:#94a3b8;">භාණ්ඩ එකතු කර නැත</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="total-display-box" id="printable-bill">
+                <div style="font-size: 0.9rem; color: #94a3b8;">එකතු කළ භාණ්ඩ ගණන: <span id="cart-count" style="color:#fff; font-weight:bold;">0</span></div>
+                <div style="font-size: 1rem; color: #94a3b8; margin-top: 5px;">මුළු මුදල:</div>
+                <div class="total-amount">රු. <span id="bill-total">0.00</span></div>
+            </div>
+
+            <button class="btn" style="width: 100%; background: #059669; margin-top: 15px; font-size: 1.1rem;" onclick="checkout()">✅ ගෙවීම ලබාගන්න / බිල් කරන්න</button>
+        </div>
+    </div>
+
+    <!-- STOCK TAB -->
+    <div id="stock" class="tab">
+        <div class="card">
+            <h3>📦 අලුත් භාණ්ඩයක් එකතු කිරීම</h3>
+            <div class="form-group">
+                <input type="text" id="item-code" placeholder="කේතය / Barcode (උදා: #101)">
+                <input type="text" id="item-name" placeholder="භාණ්ඩයේ නම">
+                <input type="number" id="item-cost" placeholder="ගත්ත මිල (Cost)">
+                <input type="number" id="item-price" placeholder="විකුණන මිල (Price)">
+                <input type="number" id="item-qty" placeholder="ප්‍රමාණය (Qty)">
+                <button class="btn" onclick="addStockItem()" style="width:100%;">Save කරන්න</button>
+            </div>
+        </div>
+        <div class="card">
+            <h3>তැනට ඇති බඩු තොගය</h3>
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr><th>කේතය</th><th>නම</th><th>මිල</th><th>තොග</th><th>ඉවත්</th></tr>
+                    </thead>
+                    <tbody id="stock-list"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEBT / ණය පොත TAB -->
+    <div id="debt" class="tab">
+        <div class="card">
+            <h3>📒 ණය පොත (Customer Debts)</h3>
+            <div class="form-group">
+                <input type="text" id="debtor-name" placeholder="පාරිභෝගිකයාගේ නම">
+                <input type="number" id="debt-amount" placeholder="ණය මුදල (රු.)">
+                <button class="btn" onclick="addDebt()" style="width:100%;">ණය සටහන් කරන්න</button>
+            </div>
+        </div>
+        <div class="card">
+            <h3>ණය ලැයිස්තුව</h3>
+            <table>
+                <thead><tr><th>නම</th><th>මුදල</th><th>පියවීම</th></tr></thead>
+                <tbody id="debt-list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- REPORTS TAB -->
+    <div id="reports" class="tab">
+        <div class="card">
+            <h3>📊 වාර්තා සහ දත්ත උපස්ථය (Backup)</h3>
+            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                <div class="card" style="flex:1; background:#0f172a; margin:0; padding:10px; border-color:#0284c7;">
+                    <h5 style="font-size:0.8rem; color:#38bdf8;">මුළු අලෙවිය</h5>
+                    <p style="font-size:1.2rem; font-weight:bold; color:#38bdf8; margin-top:5px;">රු. <span id="total-sales">0.00</span></p>
+                </div>
+                <div class="card" style="flex:1; background:#0f172a; margin:0; padding:10px; border-color:#059669;">
+                    <h5 style="font-size:0.8rem; color:#34d399;">මුළු ලාභය</h5>
+                    <p style="font-size:1.2rem; font-weight:bold; color:#34d399; margin-top:5px;">රු. <span id="total-profit">0.00</span></p>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                <button class="btn" style="flex:1; background:#334155; font-size:0.85rem;" onclick="exportData()">Data Export</button>
+                <input type="file" id="import-file" style="display:none" onchange="importData(event)">
+                <button class="btn" style="flex:1; background:#334155; font-size:0.85rem;" onclick="document.getElementById('import-file').click()">Data Import</button>
+            </div>
+            <h3>විකිණීම් ඉතිහාසය</h3>
+            <table>
+                <thead><tr><th>දිනය</th><th>එකතුව</th><th>ලාභය</th></tr></thead>
+                <tbody id="sales-history"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Bottom Navigation Bar -->
+<div class="bottom-nav">
+    <button class="active" onclick="showTab('pos', this)">🛒 <span>බිල් කිරීම</span></button>
+    <button onclick="showTab('stock', this)">📦 <span>තොග</span></button>
+    <button onclick="showTab('debt', this)">📒 <span>ණය පොත</span></button>
+    <button onclick="showTab('reports', this)">📊 <span>වාර්තා</span></button>
+</div>
+
+<script>
+    let stock = JSON.parse(localStorage.getItem('kade_stock')) || [
+        {code: "#101", name: "සුදු සීනි 1kg", cost: 250, price: 270, qty: 25},
+        {code: "#102", name: "පරිප්පු 500g", cost: 180, price: 195, qty: 18},
+        {code: "#103", name: "සමපෝෂ 200g", cost: 135, price: 150, qty: 30}
+    ];
+    let sales = JSON.parse(localStorage.getItem('kade_sales')) || [];
+    let debts = JSON.parse(localStorage.getItem('kade_debts')) || [];
+    let currentBill = [];
+    let html5QrCode = null;
+
+    function showTab(tabId, btn) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.bottom-nav button').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        if(btn) btn.classList.add('active');
+        
+        if(tabId === 'stock') renderStock();
+        if(tabId === 'reports') renderReports();
+        if(tabId === 'debt') renderDebts();
+        if(tabId === 'pos') searchItem();
+    }
+
+    function addStockItem() {
+        const code = document.getElementById('item-code').value.trim();
+        const name = document.getElementById('item-name').value.trim();
+        const cost = parseFloat(document.getElementById('item-cost').value) || 0;
+        const price = parseFloat(document.getElementById('item-price').value) || 0;
+        const qty = parseInt(document.getElementById('item-qty').value) || 0;
+
+        if (!code || !name) return alert('කරුණාකර කේතය සහ නම ඇතුළත් කරන්න');
+
+        const existing = stock.find(i => i.code === code);
+        if (existing) {
+            existing.qty += qty;
+            existing.cost = cost;
+            existing.price = price;
+        } else {
+            stock.push({ code, name, cost, price, qty });
+        }
+
+        localStorage.setItem('kade_stock', JSON.stringify(stock));
+        alert('සාර්ථකව Save විය!');
+        renderStock();
+        document.getElementById('item-code').value = '';
+        document.getElementById('item-name').value = '';
+        document.getElementById('item-cost').value = '';
+        document.getElementById('item-price').value = '';
+        document.getElementById('item-qty').value = '';
+    }
+
+    function renderStock() {
+        const tbody = document.getElementById('stock-list');
+        tbody.innerHTML = '';
+        stock.forEach((item, index) => {
+            tbody.innerHTML += `<tr>
+                <td>${item.code}</td>
+                <td>${item.name}</td>
+                <td>${item.price.toFixed(2)}</td>
+                <td>${item.qty}</td>
+                <td><button onclick="deleteStock(${index})" style="color:#ef4444; background:none; border:none; font-weight:bold; cursor:pointer;">X</button></td>
+            </tr>`;
+        });
+    }
+
+    function deleteStock(index) {
+        if(confirm('ඉවත් කරන්නද?')) {
+            stock.splice(index, 1);
+            localStorage.setItem('kade_stock', JSON.stringify(stock));
+            renderStock();
+        }
+    }
+
+    function searchItem() {
+        const query = document.getElementById('pos-search').value.toLowerCase();
+        const grid = document.getElementById('search-results');
+        grid.innerHTML = '';
+        
+        const filtered = stock.filter(i => i.name.toLowerCase().includes(query) || i.code.toLowerCase().includes(query));
+        
+        if(filtered.length === 0) {
+            grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; color:#94a3b8; padding:10px;">භාණ්ඩ හමු නොවීය</div>`;
+            return;
+        }
+
+        filtered.forEach(item => {
+            grid.innerHTML += `<div class="product-card" onclick="addToBill('${item.code}')">
+                <span class="product-code">${item.code}</span>
+                <div class="product-name">${item.name}</div>
+                <div class="product-price">රු. ${item.price.toFixed(2)}</div>
+                <div class="product-qty">තොගය: ${item.qty}</div>
+            </div>`;
+        });
+    }
+
+    function addToBill(code) {
+        const item = stock.find(i => i.code === code);
+        if (!item || item.qty <= 0) return alert('තොගයේ නොමැත!');
+
+        const billItem = currentBill.find(i => i.code === code);
+        if (billItem) {
+            if (billItem.qty + 1 > item.qty) return alert('තොගය ප්‍රමාණවත් නැත');
+            billItem.qty++;
+        } else {
+            currentBill.push({ code: item.code, name: item.name, price: item.price, cost: item.cost, qty: 1 });
+        }
+        renderBill();
+    }
+
+    function renderBill() {
+        const tbody = document.getElementById('bill-items');
+        tbody.innerHTML = '';
+        let total = 0;
+        let totalQty = 0;
+
+        if(currentBill.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8;">භාණ්ඩ එකතු කර නැත</td></tr>`;
+            document.getElementById('bill-total').innerText = "0.00";
+            document.getElementById('cart-count').innerText = "0";
+            return;
+        }
+
+        currentBill.forEach((item, index) => {
+            const itemTotal = item.price * item.qty;
+            total += itemTotal;
+            totalQty += item.qty;
+            tbody.innerHTML += `<tr>
+                <td>${item.name}</td>
+                <td>${item.price.toFixed(2)}</td>
+                <td>${item.qty}</td>
+                <td>${itemTotal.toFixed(2)}</td>
+                <td><button onclick="removeFromCart(${index})" style="color:#ef4444; background:none; border:none; cursor:pointer; font-weight:bold;">X</button></td>
+            </tr>`;
+        });
+        document.getElementById('bill-total').innerText = total.toFixed(2);
+        document.getElementById('cart-count').innerText = totalQty;
+    }
+
+    function removeFromCart(index) {
+        currentBill.splice(index, 1);
+        renderBill();
+    }
+
+    function clearCart() {
+        currentBill = [];
+        renderBill();
+    }
+
+    function checkout() {
+        if (currentBill.length === 0) return alert('බිල හිස්ය!');
+        let totalSales = 0, totalProfit = 0;
+
+        currentBill.forEach(bItem => {
+            const stockItem = stock.find(s => s.code === bItem.code);
+            if (stockItem) stockItem.qty -= bItem.qty;
+            totalSales += bItem.price * bItem.qty;
+            totalProfit += (bItem.price - bItem.cost) * bItem.qty;
+        });
+
+        sales.push({ date: new Date().toLocaleDateString(), total: totalSales, profit: totalProfit });
+        localStorage.setItem('kade_stock', JSON.stringify(stock));
+        localStorage.setItem('kade_sales', JSON.stringify(sales));
+
+        window.print();
+        currentBill = [];
+        renderBill();
+        searchItem();
+    }
+
+    function addDebt() {
+        const name = document.getElementById('debtor-name').value.trim();
+        const amount = parseFloat(document.getElementById('debt-amount').value) || 0;
+        if(!name || amount <= 0) return alert('సరైన තොරතුරු දෙන්න');
+        debts.push({ name, amount });
+        localStorage.setItem('kade_debts', JSON.stringify(debts));
+        renderDebts();
+        document.getElementById('debtor-name').value = '';
+        document.getElementById('debt-amount').value = '';
+    }
+
+    function renderDebts() {
+        const tbody = document.getElementById('debt-list');
+        tbody.innerHTML = '';
+        debts.forEach((d, index) => {
+            tbody.innerHTML += `<tr>
+                <td>${d.name}</td>
+                <td>${d.amount.getvalue ? d.amount.getvalue() : d.amount.toFixed(2)}</td>
+                <td><button class="btn" style="padding:3px 8px; background:#ef4444;" onclick="clearDebt(${index})">පියවන්න</button></td>
+            </tr>`;
+        });
+    }
+
+    function clearDebt(index) {
+        debts.splice(index, 1);
+        localStorage.setItem('kade_debts', JSON.stringify(debts));
+        renderDebts();
+    }
+
+    function renderReports() {
+        const tbody = document.getElementById('sales-history');
+        tbody.innerHTML = '';
+        let sSum = 0, pSum = 0;
+        sales.forEach(s => {
+            sSum += s.total;
+            pSum += s.profit;
+            tbody.innerHTML += `<tr><td>${s.date}</td><td>${s.total.toFixed(2)}</td><td>${s.profit.toFixed(2)}</td></tr>`;
+        });
+        document.getElementById('total-sales').innerText = sSum.toFixed(2);
+        document.getElementById('total-profit').innerText = pSum.toFixed(2);
+    }
+
+    function exportData() {
+        const data = { stock, sales, debts };
+        const blob = new Blob([JSON.stringify(data)], {type: "json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "kade_backup.json";
+        a.click();
+    }
+
+    function importData(event) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = JSON.parse(e.target.result);
+            stock = data.stock || [];
+            sales = data.sales || [];
+            debts = data.debts || [];
+            localStorage.setItem('kade_stock', JSON.stringify(stock));
+            localStorage.setItem('kade_sales', JSON.stringify(sales));
+            localStorage.setItem('kade_debts', JSON.stringify(debts));
+            alert('Restore සාර්ථකයි!');
+            location.reload();
+        };
+        reader.readAsText(event.target.files[0]);
+    }
+
+    function startScanner() {
+        const rDiv = document.getElementById('reader');
+        rDiv.style.display = 'block';
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, 
+            decodedText => {
+                document.getElementById('pos-search').value = decodedText;
+                searchItem();
+                html5QrCode.stop();
+                rDiv.style.display = 'none';
+            }, err => {}
+        ).catch(err => { alert('කැමරාව ක්‍රියාත්මක කිරීම අසාර්ථකයි'); });
+    }
+
+    renderStock();
+    searchItem();
+</script>
+</body>
+</html>
