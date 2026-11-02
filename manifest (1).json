@@ -1,0 +1,21 @@
+{
+  "background_color": "#0f172a",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "කඩේ POS",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "කඩේ POS",
+  "start_url": "/BS-Market/",
+  "theme_color": "#1e293b",
+  "id": "kade-pos-app",
+  "description": "කඩේ බිල්පත් සහ තොග කළමනාකරණය කිරීමේ යෙදුම",
+  "lang": "si",
+  "display_override": [
+    "window-controls-overlay"
+  ],
+  "categories": [
+    "business",
+    "shopping"
+  ]
+}
