@@ -21,7 +21,6 @@
         th, td { border: 1px solid #334155; padding: 10px; text-align: left; color: #e2e8f0; }
         th { background: #0f172a; color: #94a3b8; }
         
-        /* POS Specific Styling matching image */
         .app-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-size: 1.2rem; font-weight: bold; color: #38bdf8; }
         .search-bar-container { position: relative; margin-bottom: 15px; }
         .search-bar-container input { width: 100%; padding-left: 40px; border-radius: 25px; background: #1e293b; border: 1px solid #475569; }
@@ -40,7 +39,6 @@
         .total-display-box { background: #0f172a; padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid #334155; }
         .total-amount { font-size: 1.8rem; font-weight: bold; color: #34d399; text-align: right; }
         
-        /* Bottom Navigation Bar for Mobile Feel */
         .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #1e293b; display: flex; justify-content: space-around; padding: 12px 0; border-top: 1px solid #334155; z-index: 1000; }
         .bottom-nav button { background: none; border: none; color: #94a3b8; font-size: 0.85rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; gap: 4px; }
         .bottom-nav button.active, .bottom-nav button:hover { color: #38bdf8; }
@@ -70,14 +68,11 @@
 
         <div id="reader" style="width:100%; display:none; margin-bottom:10px;"></div>
 
-        <!-- Products Quick Select Grid -->
-        <div class="products-grid" id="search-results">
-            <!-- Dynamic items appear here -->
-        </div>
+        <div class="products-grid" id="search-results"></div>
 
         <div class="card">
             <div class="cart-header">
-                <h3>🛒 වර්මන් බිල (Current Cart)</h3>
+                <h3>🛒 වත්මන් බිල (Current Cart)</h3>
                 <span style="color: #ef4444; cursor: pointer; font-size: 0.9rem;" onclick="clearCart()">සියල්ල ඉවත් කරන්න</span>
             </div>
             
@@ -114,7 +109,7 @@
             </div>
         </div>
         <div class="card">
-            <h3>তැනට ඇති බඩු තොගය</h3>
+            <h3>දැනට ඇති බඩු තොගය</h3>
             <div style="overflow-x:auto;">
                 <table>
                     <thead>
@@ -353,7 +348,7 @@
     function addDebt() {
         const name = document.getElementById('debtor-name').value.trim();
         const amount = parseFloat(document.getElementById('debt-amount').value) || 0;
-        if(!name || amount <= 0) return alert('సరైన තොරතුරු දෙන්න');
+        if(!name || amount <= 0) return alert('නිවැරදි තොරතුරු ඇතුළත් කරන්න');
         debts.push({ name, amount });
         localStorage.setItem('kade_debts', JSON.stringify(debts));
         renderDebts();
@@ -367,7 +362,7 @@
         debts.forEach((d, index) => {
             tbody.innerHTML += `<tr>
                 <td>${d.name}</td>
-                <td>${d.amount.getvalue ? d.amount.getvalue() : d.amount.toFixed(2)}</td>
+                <td>${Number(d.amount).toFixed(2)}</td>
                 <td><button class="btn" style="padding:3px 8px; background:#ef4444;" onclick="clearDebt(${index})">පියවන්න</button></td>
             </tr>`;
         });
@@ -394,7 +389,7 @@
 
     function exportData() {
         const data = { stock, sales, debts };
-        const blob = new Blob([JSON.stringify(data)], {type: "json"});
+        const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
